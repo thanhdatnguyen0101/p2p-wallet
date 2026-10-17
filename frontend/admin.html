@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>P2P Wallet - Admin</title>
+<style>
+body { font-family: sans-serif; margin: 24px; }
+table { border-collapse: collapse; margin-bottom: 32px; min-width: 480px; }
+th, td { border: 1px solid #999; padding: 6px 12px; text-align: left; }
+th { background: #eee; }
+.num { text-align: right; }
+.error { color: #b00020; }
+</style>
+</head>
+<body>
+<h1>P2P Wallet - Trang Admin</h1>
+<button onclick="main()">Tai lai du lieu</button>
+<div id="error" class="error"></div>
+
+<h2>Users</h2>
+<table id="users"></table>
+
+<h2>Wallets</h2>
+<table id="wallets"></table>
+
+<h2>Transactions</h2>
+<table id="transactions"></table>
+
+<h2>Ledger</h2>
+<table id="ledger"></table>
+
+<script>
+const API = "";
+
+function render(tableId, columns, rows) {
+  const table = document.getElementById(tableId);
+  table.innerHTML = "";
+  const head = table.insertRow();
+  columns.forEach(c => {
+    const th = document.createElement("th");
+    th.textContent = c.label;
+    head.appendChild(th);
+  });
+  rows.forEach(r => {
+    const tr = table.insertRow();
+    columns.forEach(c => {
+      const td = tr.insertCell();
+      const v = r[c.key];
+      td.textContent = c.money ? Number(v).toLocaleString("vi-VN") : v;
+      if (c.money) td.className = "num";
+    });
+  });
+}
+
+async function load(path) {
+  const res = await fetch(API + path);
+  if (!res.ok) throw new Error(path + " -> HTTP " + res.status);
+  return res.json();
+}
+
+async function main() {
+  try {
+    document.getElementById("error").textContent = "";
+    const [users, wallets, transactions, ledger] = await Promise.all([
+      load("/api/users"),
+      load("/api/wallets"),
+      load("/api/transactions"),
+      load("/api/ledger"),
+    ]);
+    render("users", [
+      { key: "id", label: "ID" },
+      { key: "username", label: "Username" },
+      { key: "email", label: "Email" },
+      { key: "created_at", label: "Created at" },
+    ], users);
+    render("wallets", [
+      { key: "id", label: "Wallet ID" },
+      { key: "user_id", label: "User ID" },
+      { key: "username", label: "Username" },
+      { key: "balance", label: "Balance", money: true },
+      { key: "currency", label: "Currency" },
+    ], wallets);
+    render("transactions", [
+      { key: "id", label: "ID" },
+      { key: "sender_wallet_id", label: "Sender wallet" },
+      { key: "receiver_wallet_id", label: "Receiver wallet" },
+      { key: "amount", label: "Amount", money: true },
+      { key: "status", label: "Status" },
+      { key: "created_at", label: "Created at" },
+    ], transactions);
+    render("ledger", [
+      { key: "id", label: "ID" },
+      { key: "wallet_id", label: "Wallet" },
+      { key: "transaction_id", label: "Transaction" },
+      { key: "type", label: "Type" },
+      { key: "amount", label: "Amount", money: true },
+      { key: "balance_after", label: "Balance after", money: true },
+      { key: "created_at", label: "Created at" },
+    ], ledger);
+  } catch (e) {
+    document.getElementById("error").textContent = "Loi: " + e.message;
+  }
+}
+
+main();
+</script>
+</body>
+</html>
