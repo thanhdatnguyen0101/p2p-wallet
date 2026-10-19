@@ -1,108 +1,274 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-<meta charset="UTF-8">
-<title>P2P Wallet - Admin</title>
-<style>
-body { font-family: sans-serif; margin: 24px; }
-table { border-collapse: collapse; margin-bottom: 32px; min-width: 480px; }
-th, td { border: 1px solid #999; padding: 6px 12px; text-align: left; }
-th { background: #eee; }
-.num { text-align: right; }
-.error { color: #b00020; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P2P Wallet Pro - Trang Quản Trị Admin</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <!-- Google Font Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css">
 </head>
-<body>
-<h1>P2P Wallet - Trang Admin</h1>
-<button onclick="main()">Tai lai du lieu</button>
-<div id="error" class="error"></div>
+<body class="bg-light">
 
-<h2>Users</h2>
-<table id="users"></table>
+    <!-- Header Admin -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top shadow-sm">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center gap-2 fw-bold" href="/admin">
+                <i class="bi bi-shield-lock-fill text-warning fs-3"></i>
+                <span>P2P Wallet <span class="badge bg-warning text-dark fs-6 ms-1">Admin Panel</span></span>
+            </a>
+            <div class="d-flex align-items-center gap-2">
+                <a href="/" class="btn btn-outline-light btn-sm rounded-pill"><i class="bi bi-box-arrow-up-right me-1"></i> Trang người dùng</a>
+                <button class="btn btn-warning btn-sm rounded-pill fw-bold" id="btnRefresh" onclick="loadAllAdminData()">
+                    <i class="bi bi-arrow-clockwise"></i> Làm mới dữ liệu
+                </button>
+            </div>
+        </div>
+    </nav>
 
-<h2>Wallets</h2>
-<table id="wallets"></table>
+    <div class="container py-4">
+        <!-- Thông báo lỗi nếu có -->
+        <div id="adminError" class="alert alert-danger d-none" role="alert"></div>
 
-<h2>Transactions</h2>
-<table id="transactions"></table>
+        <!-- THỐNG KÊ CHI TIẾT THEO MICROSERVICES -->
+        <div class="row g-4 mb-4">
 
-<h2>Ledger</h2>
-<table id="ledger"></table>
+            <!-- BẢNG 1: USERS (User Service 8001) -->
+            <div class="col-lg-6">
+                <div class="card card-custom h-100 p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="fw-bold mb-0 text-primary">
+                            <i class="bi bi-people-fill me-2"></i>Danh Sách Người Dùng (Users)
+                        </h6>
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Port 8001</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Tên tài khoản</th>
+                                    <th>Email</th>
+                                    <th>Ngày tạo</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTable">
+                                <tr><td colspan="4" class="text-center py-3 text-muted">Đang tải...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
 
-<script>
-const API = "";
+            <!-- BẢNG 2: WALLETS (Wallet Service 8002) -->
+            <div class="col-lg-6">
+                <div class="card card-custom h-100 p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="fw-bold mb-0 text-success">
+                            <i class="bi bi-wallet2 me-2"></i>Danh Sách Ví Điện Tử (Wallets)
+                        </h6>
+                        <span class="badge bg-success-subtle text-success border border-success-subtle">Port 8002</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID Ví</th>
+                                    <th>Chủ sở hữu</th>
+                                    <th>Số dư hiện tại</th>
+                                    <th>Đơn vị</th>
+                                </tr>
+                            </thead>
+                            <tbody id="walletsTable">
+                                <tr><td colspan="4" class="text-center py-3 text-muted">Đang tải...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
 
-function render(tableId, columns, rows) {
-  const table = document.getElementById(tableId);
-  table.innerHTML = "";
-  const head = table.insertRow();
-  columns.forEach(c => {
-    const th = document.createElement("th");
-    th.textContent = c.label;
-    head.appendChild(th);
-  });
-  rows.forEach(r => {
-    const tr = table.insertRow();
-    columns.forEach(c => {
-      const td = tr.insertCell();
-      const v = r[c.key];
-      td.textContent = c.money ? Number(v).toLocaleString("vi-VN") : v;
-      if (c.money) td.className = "num";
-    });
-  });
-}
+            <!-- BẢNG 3: TRANSACTIONS (Transfer Service 8000) -->
+            <div class="col-lg-12">
+                <div class="card card-custom p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="fw-bold mb-0 text-dark">
+                            <i class="bi bi-arrow-left-right me-2 text-warning"></i>Toàn Bộ Giao Dịch P2P (Transactions)
+                        </h6>
+                        <span class="badge bg-dark text-white">Port 8000</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Mã GD</th>
+                                    <th>Ví gửi</th>
+                                    <th>Ví nhận</th>
+                                    <th>Số tiền</th>
+                                    <th>Trạng thái</th>
+                                    <th>Thời gian tạo</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transactionsTable">
+                                <tr><td colspan="6" class="text-center py-3 text-muted">Đang tải...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
 
-async function load(path) {
-  const res = await fetch(API + path);
-  if (!res.ok) throw new Error(path + " -> HTTP " + res.status);
-  return res.json();
-}
+            <!-- BẢNG 4: LEDGER (Wallet Service 8002) -->
+            <div class="col-lg-12">
+                <div class="card card-custom p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="fw-bold mb-0 text-danger">
+                            <i class="bi bi-journal-text me-2"></i>Sổ Cái Biến Động Số Dư (Ledger)
+                        </h6>
+                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Port 8002</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID Bút toán</th>
+                                    <th>Ví bị ảnh hưởng</th>
+                                    <th>Mã GD</th>
+                                    <th>Loại bút toán</th>
+                                    <th>Biến động số tiền</th>
+                                    <th>Số dư sau GD</th>
+                                    <th>Thời gian ghi sổ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ledgerTable">
+                                <tr><td colspan="7" class="text-center py-3 text-muted">Đang tải...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
 
-async function main() {
-  try {
-    document.getElementById("error").textContent = "";
-    const [users, wallets, transactions, ledger] = await Promise.all([
-      load("/api/users"),
-      load("/api/wallets"),
-      load("/api/transactions"),
-      load("/api/ledger"),
-    ]);
-    render("users", [
-      { key: "id", label: "ID" },
-      { key: "username", label: "Username" },
-      { key: "email", label: "Email" },
-      { key: "created_at", label: "Created at" },
-    ], users);
-    render("wallets", [
-      { key: "id", label: "Wallet ID" },
-      { key: "user_id", label: "User ID" },
-      { key: "username", label: "Username" },
-      { key: "balance", label: "Balance", money: true },
-      { key: "currency", label: "Currency" },
-    ], wallets);
-    render("transactions", [
-      { key: "id", label: "ID" },
-      { key: "sender_wallet_id", label: "Sender wallet" },
-      { key: "receiver_wallet_id", label: "Receiver wallet" },
-      { key: "amount", label: "Amount", money: true },
-      { key: "status", label: "Status" },
-      { key: "created_at", label: "Created at" },
-    ], transactions);
-    render("ledger", [
-      { key: "id", label: "ID" },
-      { key: "wallet_id", label: "Wallet" },
-      { key: "transaction_id", label: "Transaction" },
-      { key: "type", label: "Type" },
-      { key: "amount", label: "Amount", money: true },
-      { key: "balance_after", label: "Balance after", money: true },
-      { key: "created_at", label: "Created at" },
-    ], ledger);
-  } catch (e) {
-    document.getElementById("error").textContent = "Loi: " + e.message;
-  }
-}
+        </div>
+    </div>
 
-main();
-</script>
+    <!-- Script gọi API Microservices -->
+    <script>
+        const USER_SERVICE = "http://127.0.0.1:8001";
+        const WALLET_SERVICE = "http://127.0.0.1:8002";
+        const TRANSFER_SERVICE = "http://127.0.0.1:8000";
+
+        async function fetchApi(baseUrl, path) {
+            try {
+                const res = await fetch(baseUrl + path);
+                if (!res.ok) throw new Error(`HTTP ${res.status} từ ${baseUrl}`);
+                return await res.json();
+            } catch (err) {
+                // Thử fallback gọi relative nếu chạy qua proxy
+                const res = await fetch(path);
+                if (!res.ok) throw err;
+                return await res.json();
+            }
+        }
+
+        async function loadAllAdminData() {
+            const btn = document.getElementById("btnRefresh");
+            const errDiv = document.getElementById("adminError");
+            errDiv.classList.add("d-none");
+            errDiv.textContent = "";
+
+            if (btn) btn.disabled = true;
+
+            try {
+                const [users, wallets, transactions, ledger] = await Promise.all([
+                    fetchApi(USER_SERVICE, "/api/users"),
+                    fetchApi(WALLET_SERVICE, "/api/wallets"),
+                    fetchApi(TRANSFER_SERVICE, "/api/transactions"),
+                    fetchApi(WALLET_SERVICE, "/api/ledger")
+                ]);
+
+                // 1. Render Users
+                const uBody = document.getElementById("usersTable");
+                uBody.innerHTML = users.length ? "" : '<tr><td colspan="4" class="text-center text-muted">Không có người dùng</td></tr>';
+                users.forEach(u => {
+                    uBody.innerHTML += `
+                        <tr>
+                            <td><strong>#${u.id}</strong></td>
+                            <td class="fw-bold">${u.username}</td>
+                            <td>${u.email}</td>
+                            <td class="small text-muted">${u.created_at}</td>
+                        </tr>
+                    `;
+                });
+
+                // 2. Render Wallets
+                const wBody = document.getElementById("walletsTable");
+                wBody.innerHTML = wallets.length ? "" : '<tr><td colspan="4" class="text-center text-muted">Không có ví nào</td></tr>';
+                wallets.forEach(w => {
+                    wBody.innerHTML += `
+                        <tr>
+                            <td><strong>#${w.id}</strong></td>
+                            <td>${w.username} (User #${w.user_id})</td>
+                            <td class="fw-bold text-success">${Number(w.balance).toLocaleString("vi-VN")} ${w.currency}</td>
+                            <td><span class="badge bg-secondary">${w.currency}</span></td>
+                        </tr>
+                    `;
+                });
+
+                // 3. Render Transactions
+                const tBody = document.getElementById("transactionsTable");
+                tBody.innerHTML = transactions.length ? "" : '<tr><td colspan="6" class="text-center text-muted">Không có giao dịch nào</td></tr>';
+                transactions.slice().reverse().forEach(t => {
+                    const statusBadge = t.status === 'SUCCESS' ? '<span class="badge bg-success">SUCCESS</span>'
+                        : t.status === 'PENDING' ? '<span class="badge bg-warning text-dark">PENDING</span>'
+                        : '<span class="badge bg-danger">FAILED</span>';
+
+                    tBody.innerHTML += `
+                        <tr>
+                            <td><strong>#${t.id}</strong></td>
+                            <td>Ví #${t.sender_wallet_id}</td>
+                            <td>Ví #${t.receiver_wallet_id}</td>
+                            <td class="fw-bold">${Number(t.amount).toLocaleString("vi-VN")} VND</td>
+                            <td>${statusBadge}</td>
+                            <td class="small text-muted">${t.created_at}</td>
+                        </tr>
+                    `;
+                });
+
+                // 4. Render Ledger
+                const lBody = document.getElementById("ledgerTable");
+                lBody.innerHTML = ledger.length ? "" : '<tr><td colspan="7" class="text-center text-muted">Sổ cái trống</td></tr>';
+                ledger.slice().reverse().forEach(l => {
+                    const typeBadge = l.type === 'DEBIT' 
+                        ? '<span class="badge bg-danger-subtle text-danger border border-danger-subtle">DEBIT (-)</span>' 
+                        : '<span class="badge bg-success-subtle text-success border border-success-subtle">CREDIT (+)</span>';
+
+                    lBody.innerHTML += `
+                        <tr>
+                            <td><strong>#${l.id}</strong></td>
+                            <td>Ví #${l.wallet_id}</td>
+                            <td>GD #${l.transaction_id}</td>
+                            <td>${typeBadge}</td>
+                            <td class="${l.type === 'DEBIT' ? 'text-danger' : 'text-success'} fw-bold">
+                                ${l.type === 'DEBIT' ? '-' : '+'}${Number(l.amount).toLocaleString("vi-VN")} VND
+                            </td>
+                            <td class="fw-bold">${Number(l.balance_after).toLocaleString("vi-VN")} VND</td>
+                            <td class="small text-muted">${l.created_at}</td>
+                        </tr>
+                    `;
+                });
+
+            } catch (err) {
+                errDiv.textContent = "Không thể tải dữ liệu Admin: " + err.message;
+                errDiv.classList.remove("d-none");
+            } finally {
+                if (btn) btn.disabled = false;
+            }
+        }
+
+        // Tự động tải khi mở trang
+        document.addEventListener("DOMContentLoaded", loadAllAdminData);
+    </script>
 </body>
 </html>

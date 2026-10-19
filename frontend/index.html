@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P2P Wallet Pro - Ví Điện Tử Chuyển Tiền Bán Tự Động</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <!-- Google Font Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <!-- Container chứa Toast Notification -->
+    <div id="toastContainer" class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1090;"></div>
+
+    <!-- Header / Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom sticky-top">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center gap-2" href="#">
+                <i class="bi bi-wallet2 fs-3"></i>
+                <span>P2P Wallet<span class="badge bg-primary-subtle text-primary ms-2 fs-6">Pro</span></span>
+            </a>
+            <div class="d-flex align-items-center gap-3">
+                <div id="userInfo" class="d-none align-items-center gap-2">
+                    <span class="fw-semibold" id="navUsername">An Nguyễn</span>
+                    <button class="btn btn-outline-danger btn-sm rounded-pill" onclick="logout()"><i class="bi bi-box-arrow-right"></i> Đăng xuất</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+
+        <!-- MÀN HÌNH 1: ĐĂNG NHẬP & ĐĂNG KÝ (Chuyển Tab thuần JS) -->
+        <div id="loginView" class="row justify-content-center py-5">
+            <div class="col-md-5">
+                <div class="card card-custom p-4">
+                    <!-- Nav Tabs Chuyển Đổi bằng onclick JS -->
+                    <ul class="nav nav-pills nav-justified mb-4" id="authTabs">
+                        <li class="nav-item">
+                            <button class="nav-link active fw-bold" id="login-tab" type="button" onclick="switchTab('login')">Đăng Nhập</button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link fw-bold" id="register-tab" type="button" onclick="switchTab('register')">Đăng Ký Mới</button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content">
+                        <!-- TAB ĐĂNG NHẬP -->
+                        <div class="tab-pane fade show active" id="login-panel">
+                            <form id="loginForm" onsubmit="handleLogin(event)">
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold small">Tên đăng nhập</label>
+                                    <input type="text" id="loginUser" class="form-control py-2" placeholder="Nhập username" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold small">Mật khẩu</label>
+                                    <input type="password" id="loginPass" class="form-control py-2" placeholder="••••••••" required>
+                                </div>
+                                <div id="loginError" class="text-danger small mb-3"></div>
+                                <button type="submit" class="btn btn-primary-custom w-100 py-2">Đăng Nhập <i class="bi bi-arrow-right ms-1"></i></button>
+                            </form>
+                        </div>
+
+                        <!-- TAB ĐĂNG KÝ -->
+                        <div class="tab-pane fade" id="register-panel">
+                            <form id="registerForm" onsubmit="handleRegister(event)">
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold small">Tên đăng nhập</label>
+                                    <input type="text" id="regUser" class="form-control py-2" placeholder="Tạo username mới" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold small">Email</label>
+                                    <input type="email" id="regEmail" class="form-control py-2" placeholder="nguyenvana@example.com" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold small">Mật khẩu</label>
+                                    <input type="password" id="regPass" class="form-control py-2" placeholder="••••••••" required>
+                                </div>
+                                <div id="regError" class="text-danger small mb-3"></div>
+                                <button type="submit" class="btn btn-success w-100 py-2 fw-bold"><i class="bi bi-person-plus"></i> Tạo Tài Khoản Mới</button>
+                            </form>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- MÀN HÌNH 2: DASHBOARD CHÍNH (Sau khi đăng nhập) -->
+        <div id="dashboardView" class="d-none">
+            <div class="row g-4">
+                <!-- Cột trái: Thẻ số dư & Form Chuyển tiền -->
+                <div class="col-lg-5">
+                    
+                    <!-- Thẻ số dư ví -->
+                    <div class="card balance-card p-4 mb-4">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div>
+                                <small class="text-white-50 text-uppercase fw-semibold">Số Dư Khả Dụng</small>
+                                <h2 class="fw-bold mb-0 mt-1" id="userBalance">0 VND</h2>
+                            </div>
+                            <span class="badge bg-white text-primary px-3 py-2 rounded-pill fw-bold">Ví Chính</span>
+                        </div>
+                        <div class="pt-3 border-top border-white-10 d-flex justify-content-between small text-white-50">
+                            <div>Chủ tài khoản: <strong class="text-white" id="profileName">--</strong></div>
+                            <div>ID Ví: <strong class="text-white" id="profileWalletId">#--</strong></div>
+                        </div>
+                    </div>
+
+                    <!-- Form Chuyển tiền P2P / Thanh toán -->
+                    <div class="card card-custom p-4">
+                        <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                            <i class="bi bi-send text-primary"></i>
+                            Chuyển Tiền / Thanh Toán
+                        </h5>
+                        <form id="transferForm" onsubmit="initiateTransfer(event)">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold small">ID Ví Người Nhận</label>
+                                <div class="input-group">
+                                    <input type="number" id="receiverWalletId" class="form-control" placeholder="Nhập ID ví (vd: 2)" required onchange="lookupReceiver()">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="lookupReceiver()"><i class="bi bi-search"></i> Kiểm tra</button>
+                                </div>
+                                <div id="receiverInfo" class="form-text mt-1 text-success fw-semibold"></div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold small">Số Tiền Chuyển (VND)</label>
+                                <input type="number" id="transferAmount" class="form-control" placeholder="Tối thiểu 1,000 VND" min="1000" required>
+                            </div>
+                            <div id="transferError" class="text-danger small mb-3"></div>
+                            <button type="submit" class="btn btn-primary-custom w-100"><i class="bi bi-shield-check"></i> Tiếp Tục Tạo Giao Dịch</button>
+                        </form>
+                    </div>
+
+                </div>
+
+                <!-- Cột phải: Lịch sử giao dịch & Sổ cái -->
+                <div class="col-lg-7">
+                    <div class="card card-custom p-4 h-100">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="fw-bold mb-0"><i class="bi bi-clock-history text-primary"></i> Lịch Sử Giao Dịch</h5>
+                            <button class="btn btn-sm btn-outline-primary" onclick="loadDashboardData()"><i class="bi bi-arrow-clockwise"></i> Làm mới</button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-custom table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Mã GD</th>
+                                        <th>Loại</th>
+                                        <th>Số tiền</th>
+                                        <th>Trạng thái</th>
+                                        <th>Thời gian</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="transactionHistoryTable">
+                                    <tr>
+                                        <td colspan="5" class="text-center py-4 text-muted">Đang tải dữ liệu...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- MODAL XÁC THỰC OTP -->
+    <div class="modal fade" id="otpModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 rounded-4 shadow">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-envelope-check text-primary me-2"></i>Nhập Mã Xác Thực OTP</h5>
+                    <button type="button" class="btn-close" onclick="closeOtpModal()"></button>
+                </div>
+                <div class="modal-body text-center py-4">
+                    <p class="text-muted small mb-3">
+                        Mã OTP đã được gửi đến email đăng ký của bạn. Mã có hiệu lực trong <strong id="otpTimer" class="text-danger">05:00</strong>.
+                    </p>
+                    <div class="alert alert-info py-2 small d-inline-block mb-3">
+                        <i class="bi bi-info-circle"></i> Demo OTP tự động: <strong id="demoOtpCode" class="fs-6 text-dark">------</strong>
+                    </div>
+
+                    <div class="otp-input d-flex justify-content-center my-3">
+                        <input type="text" maxlength="1" class="otp-digit" autofocus>
+                        <input type="text" maxlength="1" class="otp-digit">
+                        <input type="text" maxlength="1" class="otp-digit">
+                        <input type="text" maxlength="1" class="otp-digit">
+                        <input type="text" maxlength="1" class="otp-digit">
+                        <input type="text" maxlength="1" class="otp-digit">
+                    </div>
+                    <div id="otpError" class="text-danger small mt-2"></div>
+                </div>
+                <div class="modal-footer border-0 pt-0 justify-content-center">
+                    <button type="button" class="btn btn-secondary px-4 rounded-3" onclick="closeOtpModal()">Hủy</button>
+                    <button type="button" class="btn btn-primary-custom px-4" onclick="confirmOTP()">Xác Nhận Thanh Toán</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap 5 JS & File App JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/bootstrap.bundle.min.js"></script>
+    <script src="/app.js"></script>
+</body>
+</html>
