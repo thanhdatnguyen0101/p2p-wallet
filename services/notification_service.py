@@ -1,9 +1,13 @@
 from datetime import datetime, timedelta, timezone
-import json
 import os
 import secrets
 import sqlite3
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from typing import Optional
+
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "..", "data", "p2p_wallet.db")
@@ -11,118 +15,104 @@ PORT = 8003
 
 
 def now_text(offset_minutes=0):
-  moment = datetime.now(timezone.utc) + timedelta(minutes=offset_minutes)
-  return moment.strftime("%Y-%m-%d %H:%M:%S")
+    moment = datetime.now(timezone.utc) + timedelta(minutes=offset_minutes)
+    return moment.strftime("%Y-%m-%d %H:%M:%S")
 
 
-class NotificationServiceHandler(BaseHTTPRequestHandler):
+app = FastAPI(title="Notification Service")
 
-  def cors_headers(self):
-    self.send_header("Access-Control-Allow-Origin", "*")
-    self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-    self.send_header("Access-Control-Allow-Headers", "Content-Type")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-  def send_json(self, status, data):
-    body = json.dumps(data, ensure_ascii=False).encode("utf-8")
-    self.send_response(status)
-    self.send_header("Content-Type", "application/json; charset=utf-8")
-    self.send_header("Content-Length", str(len(body)))
-    self.cors_headers()
-    self.end_headers()
-    self.wfile.write(body)
 
-  def do_OPTIONS(self):
-    self.send_response(204)
-    self.cors_headers()
-    self.end_headers()
-  def do_GET(self):
-      path_segs = [s for s in self.path.split("?")[0].split("/") if s]
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc):
+    return JSONResponse(status_code=exc.status_code, content={"error": exc.detail})
 
-      if path_segs == []:
-        self.send_json(
-            200,
-            {
-                "service": "Notification Service",
-                "port": 8003,
-                "status": "ONLINE",
-                "description": "Dịch vụ xác thực OTP & Thông báo",
-                "endpoints": [
-                    "POST /api/otp/generate",
-                    "POST /api/otp/verify",
-                ],
-            },
-        )
-        return
 
-      self.send_json(
-          404, {"error": "Endpoint không tồn tại ở Notification Service"}
-      )
-  def do_POST(self):
-    path_segs = [s for s in self.path.split("?")[0].split("/") if s]
-    length = int(self.headers.get("Content-Length", 0))
-    body = json.loads(self.rfile.read(length)) if length > 0 else {}
+class OtpGenerateRequest(BaseModel):
+    transaction_id: Optional[int] = None
 
-    # API: POST /api/otp/generate
-    if path_segs == ["api", "otp", "generate"]:
-      tx_id = body.get("transaction_id")
-      code = "%06d" % secrets.randbelow(1000000)
-      expires_at = now_text(5)
 
-      conn = sqlite3.connect(DB_PATH)
-      conn.execute(
-          "INSERT INTO otp_codes (transaction_id, code, expires_at, is_used)"
-          " VALUES (?, ?, ?, 0)",
-          (tx_id, code, expires_at),
-      )
-      conn.commit()
-      conn.close()
+class OtpVerifyRequest(BaseModel):
+    transaction_id: Optional[int] = None
+    code: Optional[str] = None
 
-      self.send_json(201, {"demo_otp": code, "expires_at": expires_at})
-      return
 
-    # API: POST /api/otp/verify
-    if path_segs == ["api", "otp", "verify"]:
-      tx_id = body.get("transaction_id")
-      input_code = body.get("code")
+@app.get("/")
+def root():
+    return {
+        "service": "Notification Service",
+        "port": PORT,
+        "status": "ONLINE",
+        "description": "Dịch vụ xác thực OTP & Thông báo",
+        "endpoints": [
+            "POST /api/otp/generate",
+            "POST /api/otp/verify",
+        ],
+    }
 
-      conn = sqlite3.connect(DB_PATH)
-      conn.row_factory = sqlite3.Row
-      otp = conn.execute(
-          "SELECT id, code, expires_at, is_used FROM otp_codes WHERE"
-          " transaction_id = ?",
-          (tx_id,),
-      ).fetchone()
 
-      if not otp or otp["is_used"]:
+# API: POST /api/otp/generate
+@app.post("/api/otp/generate", status_code=201)
+def generate_otp(payload: OtpGenerateRequest):
+    tx_id = payload.transaction_id
+    code = "%06d" % secrets.randbelow(1000000)
+    expires_at = now_text(5)
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(
+        "INSERT INTO otp_codes (transaction_id, code, expires_at, is_used)"
+        " VALUES (?, ?, ?, 0)",
+        (tx_id, code, expires_at),
+    )
+    conn.commit()
+    conn.close()
+
+    return {"demo_otp": code, "expires_at": expires_at}
+
+
+# API: POST /api/otp/verify
+@app.post("/api/otp/verify")
+def verify_otp(payload: OtpVerifyRequest):
+    tx_id = payload.transaction_id
+    input_code = payload.code
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    otp = conn.execute(
+        "SELECT id, code, expires_at, is_used FROM otp_codes WHERE"
+        " transaction_id = ?",
+        (tx_id,),
+    ).fetchone()
+
+    if not otp or otp["is_used"]:
         conn.close()
-        self.send_json(409, {"error": "Mã OTP không còn hiệu lực"})
-        return
+        raise HTTPException(status_code=409, detail="Mã OTP không còn hiệu lực")
 
-      if otp["expires_at"] < now_text():
+    if otp["expires_at"] < now_text():
         conn.close()
-        self.send_json(410, {"error": "Mã OTP đã hết hạn"})
-        return
+        raise HTTPException(status_code=410, detail="Mã OTP đã hết hạn")
 
-      if not secrets.compare_digest(
-          otp["code"].encode("utf-8"), str(input_code).encode("utf-8")
-      ):
+    if not secrets.compare_digest(
+        otp["code"].encode("utf-8"), str(input_code).encode("utf-8")
+    ):
         conn.close()
-        self.send_json(400, {"error": "Mã OTP không đúng"})
-        return
+        raise HTTPException(status_code=400, detail="Mã OTP không đúng")
 
-      conn.execute(
-          "UPDATE otp_codes SET is_used = 1 WHERE id = ?", (otp["id"],)
-      )
-      conn.commit()
-      conn.close()
+    conn.execute("UPDATE otp_codes SET is_used = 1 WHERE id = ?", (otp["id"],))
+    conn.commit()
+    conn.close()
 
-      self.send_json(200, {"valid": True, "message": "Xác thực OTP thành công"})
-      return
-
-    self.send_json(404, {"error": "Endpoint không tồn tại"})
+    return {"valid": True, "message": "Xác thực OTP thành công"}
 
 
 if __name__ == "__main__":
-  server = HTTPServer(("127.0.0.1", PORT), NotificationServiceHandler)
-  print(f"[Notification Service] đang chạy tại http://127.0.0.1:{PORT}")
-  server.serve_forever()
+    import uvicorn
+
+    print(f"[Notification Service] đang chạy tại http://127.0.0.1:{PORT}")
+    uvicorn.run(app, host="127.0.0.1", port=PORT)

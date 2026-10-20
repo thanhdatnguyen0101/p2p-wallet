@@ -16,7 +16,7 @@ services = [
 
 processes = []
 
-print("P2P Wallet Microservices...\n")
+print("P2P Wallet Microservices (FastAPI)...\n")
 
 try:
   for service in services:
