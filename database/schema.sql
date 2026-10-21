@@ -5,7 +5,8 @@ CREATE TABLE users (
     username TEXT NOT NULL UNIQUE,
     email TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    is_admin INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE wallets (

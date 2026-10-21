@@ -26,7 +26,16 @@ async function handleLogin(e) {
 
     try {
         const res = await apiCall(USER_SERVICE, "/api/login", "POST", { username, password });
-        
+
+        // Tài khoản Admin không đăng nhập ở trang người dùng -> chuyển thẳng sang
+        // trang quản trị, không bắt đăng nhập lại lần 2 (lưu phiên tạm trong
+        // sessionStorage để /admin tự nhận diện và vào thẳng Admin Panel).
+        if (res.user.is_admin) {
+            sessionStorage.setItem("p2p_admin_session", JSON.stringify({ username: res.user.username }));
+            window.location.href = "/admin";
+            return;
+        }
+
         currentUserId = res.user.id;
         document.getElementById("navUsername").textContent = res.user.username;
         document.getElementById("profileName").textContent = res.user.username;
@@ -93,6 +102,11 @@ async function loadDashboardData() {
             currentUserWalletId = myWallet.id;
             document.getElementById("userBalance").textContent = Number(myWallet.balance).toLocaleString("vi-VN") + " " + myWallet.currency;
             document.getElementById("profileWalletId").textContent = "#" + myWallet.id;
+        } else {
+            // Không có ví (vd: tài khoản không có ví) -> xoá dữ liệu cũ, tránh hiện sai số dư của lượt đăng nhập trước
+            currentUserWalletId = null;
+            document.getElementById("userBalance").textContent = "0 VND";
+            document.getElementById("profileWalletId").textContent = "#--";
         }
 
         const txs = await apiCall(TRANSFER_SERVICE, "/api/transactions");
@@ -216,8 +230,14 @@ function logout() {
     currentUserId = null;
     currentUserWalletId = null;
     document.getElementById("dashboardView").classList.add("d-none");
-    document.getElementById("userInfo").classList.replace("d-none", "d-flex");
     document.getElementById("loginView").classList.remove("d-none");
+    document.getElementById("userInfo").classList.replace("d-flex", "d-none");
+
+    // Xoá sạch dữ liệu hiển thị cũ để tránh rò rỉ sang lượt đăng nhập tiếp theo
+    document.getElementById("userBalance").textContent = "0 VND";
+    document.getElementById("profileWalletId").textContent = "#--";
+    document.getElementById("profileName").textContent = "--";
+    document.getElementById("loginForm").reset();
 }
 // Hàm chuyển đổi Tab Đăng nhập / Đăng ký bằng JS thuần
 function switchTab(type) {

@@ -21,16 +21,47 @@
                 <i class="bi bi-shield-lock-fill text-warning fs-3"></i>
                 <span>P2P Wallet <span class="badge bg-warning text-dark fs-6 ms-1">Admin Panel</span></span>
             </a>
-            <div class="d-flex align-items-center gap-2">
+            <div class="d-flex align-items-center gap-2" id="navAdminActions" style="display:none;">
+                <span class="text-white-50 small d-none d-md-inline me-1">Xin chào, <strong class="text-white" id="navAdminName">admin</strong></span>
                 <a href="/" class="btn btn-outline-light btn-sm rounded-pill"><i class="bi bi-box-arrow-up-right me-1"></i> Trang người dùng</a>
                 <button class="btn btn-warning btn-sm rounded-pill fw-bold" id="btnRefresh" onclick="loadAllAdminData()">
                     <i class="bi bi-arrow-clockwise"></i> Làm mới dữ liệu
+                </button>
+                <button class="btn btn-outline-danger btn-sm rounded-pill" onclick="adminLogout()">
+                    <i class="bi bi-box-arrow-right"></i> Đăng xuất
                 </button>
             </div>
         </div>
     </nav>
 
-    <div class="container py-4">
+    <!-- MÀN HÌNH ĐĂNG NHẬP ADMIN -->
+    <div id="adminLoginView" class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-md-5">
+                <div class="card card-custom p-4">
+                    <div class="text-center mb-4">
+                        <i class="bi bi-shield-lock-fill text-warning" style="font-size: 2.5rem;"></i>
+                        <h5 class="fw-bold mt-2 mb-0">Đăng Nhập Quản Trị</h5>
+                        <p class="text-muted small mb-0">Chỉ tài khoản Admin mới có quyền truy cập trang này</p>
+                    </div>
+                    <form id="adminLoginForm" onsubmit="handleAdminLogin(event)">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold small">Tên đăng nhập</label>
+                            <input type="text" id="adminLoginUser" class="form-control py-2" placeholder="Nhập username admin" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold small">Mật khẩu</label>
+                            <input type="password" id="adminLoginPass" class="form-control py-2" placeholder="••••••••" required>
+                        </div>
+                        <div id="adminLoginError" class="text-danger small mb-3"></div>
+                        <button type="submit" class="btn btn-primary-custom w-100 py-2 fw-bold">Đăng Nhập <i class="bi bi-arrow-right ms-1"></i></button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container py-4 d-none" id="adminPanelView">
         <!-- Thông báo lỗi nếu có -->
         <div id="adminError" class="alert alert-danger d-none" role="alert"></div>
 
@@ -44,7 +75,12 @@
                         <h6 class="fw-bold mb-0 text-primary">
                             <i class="bi bi-people-fill me-2"></i>Danh Sách Người Dùng (Users)
                         </h6>
-                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Port 8001</span>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Port 8001</span>
+                            <button class="btn btn-primary btn-sm rounded-pill" onclick="openCreateUserModal()">
+                                <i class="bi bi-plus-lg"></i> Thêm
+                            </button>
+                        </div>
                     </div>
                     <div class="table-responsive">
                         <table class="table table-sm table-hover align-middle mb-0">
@@ -54,10 +90,11 @@
                                     <th>Tên tài khoản</th>
                                     <th>Email</th>
                                     <th>Ngày tạo</th>
+                                    <th class="text-end">Thao tác</th>
                                 </tr>
                             </thead>
                             <tbody id="usersTable">
-                                <tr><td colspan="4" class="text-center py-3 text-muted">Đang tải...</td></tr>
+                                <tr><td colspan="5" class="text-center py-3 text-muted">Đang tải...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -153,6 +190,55 @@
         </div>
     </div>
 
+    <!-- Modal: Thêm / Sửa Người Dùng -->
+    <div class="modal fade" id="userModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form id="userForm">
+                    <div class="modal-header">
+                        <h5 class="modal-title fw-bold" id="userModalTitle">
+                            <i class="bi bi-person-plus-fill me-2"></i>Thêm Người Dùng
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="userFormError" class="alert alert-danger d-none py-2 small" role="alert"></div>
+
+                        <input type="hidden" id="userId" value="">
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Tên tài khoản (username)</label>
+                            <input type="text" class="form-control" id="userUsername" placeholder="vd: duc_anh" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Email</label>
+                            <input type="email" class="form-control" id="userEmail" placeholder="vd: duc_anh@example.com" required>
+                        </div>
+
+                        <div class="mb-3" id="userPasswordGroup">
+                            <label class="form-label fw-semibold">Mật khẩu</label>
+                            <input type="password" class="form-control" id="userPassword" placeholder="Nhập mật khẩu">
+                            <div class="form-text" id="userPasswordHint">Bắt buộc khi tạo mới. Khi sửa, để trống nếu không đổi mật khẩu.</div>
+                        </div>
+
+                        <div class="mb-1" id="userBalanceGroup">
+                            <label class="form-label fw-semibold">Số dư khởi tạo (VND)</label>
+                            <input type="number" class="form-control" id="userBalance" value="1000000" min="0" step="1000">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                        <button type="submit" class="btn btn-primary fw-bold" id="userFormSubmitBtn">Lưu</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap Bundle JS (cần cho Modal) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
     <!-- Script gọi API Microservices -->
     <script>
         const USER_SERVICE = "http://127.0.0.1:8001";
@@ -190,14 +276,24 @@
 
                 // 1. Render Users
                 const uBody = document.getElementById("usersTable");
-                uBody.innerHTML = users.length ? "" : '<tr><td colspan="4" class="text-center text-muted">Không có người dùng</td></tr>';
+                uBody.innerHTML = users.length ? "" : '<tr><td colspan="5" class="text-center text-muted">Không có người dùng</td></tr>';
                 users.forEach(u => {
+                    const safeUsername = String(u.username).replace(/'/g, "\\'");
+                    const safeEmail = String(u.email).replace(/'/g, "\\'");
                     uBody.innerHTML += `
                         <tr>
                             <td><strong>#${u.id}</strong></td>
                             <td class="fw-bold">${u.username}</td>
                             <td>${u.email}</td>
                             <td class="small text-muted">${u.created_at}</td>
+                            <td class="text-end">
+                                <button class="btn btn-outline-secondary btn-sm" onclick="openEditUserModal(${u.id}, '${safeUsername}', '${safeEmail}')" title="Sửa">
+                                    <i class="bi bi-pencil-square"></i>
+                                </button>
+                                <button class="btn btn-outline-danger btn-sm" onclick="deleteUser(${u.id}, '${safeUsername}')" title="Xóa">
+                                    <i class="bi bi-trash3"></i>
+                                </button>
+                            </td>
                         </tr>
                     `;
                 });
@@ -267,8 +363,182 @@
             }
         }
 
-        // Tự động tải khi mở trang
-        document.addEventListener("DOMContentLoaded", loadAllAdminData);
+        // ===================== CRUD NGƯỜI DÙNG =====================
+
+        const userModalEl = document.getElementById("userModal");
+        const userModal = new bootstrap.Modal(userModalEl);
+        const userForm = document.getElementById("userForm");
+        const userFormError = document.getElementById("userFormError");
+
+        function showUserFormError(msg) {
+            userFormError.textContent = msg;
+            userFormError.classList.remove("d-none");
+        }
+
+        function resetUserForm() {
+            userForm.reset();
+            document.getElementById("userId").value = "";
+            userFormError.classList.add("d-none");
+            userFormError.textContent = "";
+        }
+
+        // Mở modal ở chế độ THÊM MỚI
+        function openCreateUserModal() {
+            resetUserForm();
+            document.getElementById("userModalTitle").innerHTML = '<i class="bi bi-person-plus-fill me-2"></i>Thêm Người Dùng';
+            document.getElementById("userFormSubmitBtn").textContent = "Tạo người dùng";
+            document.getElementById("userPassword").required = true;
+            document.getElementById("userPasswordHint").textContent = "Bắt buộc khi tạo mới.";
+            document.getElementById("userBalanceGroup").classList.remove("d-none");
+            document.getElementById("userBalance").value = 1000000;
+            userModal.show();
+        }
+
+        // Mở modal ở chế độ SỬA
+        function openEditUserModal(id, username, email) {
+            resetUserForm();
+            document.getElementById("userModalTitle").innerHTML = '<i class="bi bi-pencil-square me-2"></i>Sửa Người Dùng #' + id;
+            document.getElementById("userFormSubmitBtn").textContent = "Lưu thay đổi";
+            document.getElementById("userId").value = id;
+            document.getElementById("userUsername").value = username;
+            document.getElementById("userEmail").value = email;
+            document.getElementById("userPassword").required = false;
+            document.getElementById("userPasswordHint").textContent = "Để trống nếu không muốn đổi mật khẩu.";
+            document.getElementById("userBalanceGroup").classList.add("d-none"); // Không sửa số dư ở đây, dùng ở bảng Wallets/Ledger
+            userModal.show();
+        }
+
+        // Submit form: tạo mới hoặc cập nhật
+        userForm.addEventListener("submit", async function (e) {
+            e.preventDefault();
+            userFormError.classList.add("d-none");
+
+            const id = document.getElementById("userId").value;
+            const username = document.getElementById("userUsername").value.trim();
+            const email = document.getElementById("userEmail").value.trim();
+            const password = document.getElementById("userPassword").value.trim();
+            const submitBtn = document.getElementById("userFormSubmitBtn");
+
+            submitBtn.disabled = true;
+            try {
+                if (id) {
+                    // CẬP NHẬT
+                    const body = { username, email };
+                    if (password) body.password = password;
+                    const res = await fetch(`${USER_SERVICE}/api/admin/users/${id}`, {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(body),
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || "Cập nhật thất bại");
+                } else {
+                    // TẠO MỚI
+                    if (!password) throw new Error("Vui lòng nhập mật khẩu");
+                    const initial_balance = Number(document.getElementById("userBalance").value) || 0;
+                    const res = await fetch(`${USER_SERVICE}/api/admin/users`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ username, email, password, initial_balance }),
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || "Tạo người dùng thất bại");
+                }
+
+                userModal.hide();
+                await loadAllAdminData();
+            } catch (err) {
+                showUserFormError(err.message);
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+
+        // Xóa người dùng
+        async function deleteUser(id, username) {
+            if (!confirm(`Xác nhận xóa người dùng "${username}" (#${id})?\nHành động này không thể hoàn tác.`)) return;
+
+            try {
+                const res = await fetch(`${USER_SERVICE}/api/admin/users/${id}`, { method: "DELETE" });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || "Xóa thất bại");
+                await loadAllAdminData();
+            } catch (err) {
+                alert("Không thể xóa: " + err.message);
+            }
+        }
+
+        // ===================== ĐĂNG NHẬP ADMIN =====================
+        // Logic giống hệt đăng nhập người dùng thường (gọi chung /api/login
+        // ở USER_SERVICE), chỉ khác là bắt buộc tài khoản phải có is_admin = 1.
+
+        const ADMIN_SESSION_KEY = "p2p_admin_session";
+
+        // Hiện Admin Panel (dùng chung cho cả 2 trường hợp: đăng nhập thủ công
+        // tại đây, hoặc được chuyển thẳng từ trang người dùng sang)
+        async function enterAdminPanel(username) {
+            document.getElementById("navAdminName").textContent = username;
+            document.getElementById("navAdminActions").style.display = "flex";
+            document.getElementById("adminLoginView").classList.add("d-none");
+            document.getElementById("adminPanelView").classList.remove("d-none");
+            await loadAllAdminData();
+        }
+
+        async function handleAdminLogin(e) {
+            e.preventDefault();
+            const username = document.getElementById("adminLoginUser").value.trim();
+            const password = document.getElementById("adminLoginPass").value.trim();
+            const errorBox = document.getElementById("adminLoginError");
+            errorBox.textContent = "";
+
+            try {
+                const res = await fetch(`${USER_SERVICE}/api/login`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username, password }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || "Đăng nhập thất bại");
+
+                if (!data.user || !data.user.is_admin) {
+                    throw new Error("Tài khoản này không có quyền quản trị!");
+                }
+
+                sessionStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({ username: data.user.username }));
+                await enterAdminPanel(data.user.username);
+            } catch (err) {
+                errorBox.textContent = err.message;
+            }
+        }
+
+        function adminLogout() {
+            sessionStorage.removeItem(ADMIN_SESSION_KEY);
+            document.getElementById("adminPanelView").classList.add("d-none");
+            document.getElementById("navAdminActions").style.display = "none";
+            document.getElementById("adminLoginView").classList.remove("d-none");
+            document.getElementById("adminLoginForm").reset();
+            document.getElementById("adminLoginError").textContent = "";
+        }
+
+        // Mở trang /admin: nếu đã có phiên admin hợp lệ (vừa đăng nhập ở trang
+        // người dùng, hoặc đang trong cùng tab từ trước) -> vào thẳng Admin Panel,
+        // không bắt đăng nhập lại.
+        document.addEventListener("DOMContentLoaded", () => {
+            const saved = sessionStorage.getItem(ADMIN_SESSION_KEY);
+            if (saved) {
+                try {
+                    const { username } = JSON.parse(saved);
+                    if (username) {
+                        enterAdminPanel(username);
+                    }
+                } catch (e) {
+                    sessionStorage.removeItem(ADMIN_SESSION_KEY);
+                }
+            }
+        });
+
+        window.handleAdminLogin = handleAdminLogin;
+        window.adminLogout = adminLogout;
     </script>
 </body>
 </html>

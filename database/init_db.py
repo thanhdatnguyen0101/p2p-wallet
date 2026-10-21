@@ -30,6 +30,13 @@ def main():
         "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)", users
     )
 
+    # Tài khoản Admin duy nhất (không có ví, chỉ dùng để quản trị)
+    conn.execute(
+        "INSERT INTO users (username, email, password_hash, is_admin)"
+        " VALUES (?, ?, ?, 1)",
+        ("admin", "admin@p2pwallet.local", hash_password("Admin@123")),
+    )
+
     wallets = [(1, 900000, "VND"), (2, 550000, "VND"), (3, 350000, "VND")]
     conn.executemany(
         "INSERT INTO wallets (user_id, balance, currency) VALUES (?, ?, ?)", wallets
