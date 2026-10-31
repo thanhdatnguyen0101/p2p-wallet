@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime,timedelta, timezone
 import hashlib
 import os
 import sqlite3
@@ -25,9 +25,9 @@ else:
 
 PORT = 8001
 
-
+VN_TZ = timezone(timedelta(hours=7))
 def now_text():
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+  return datetime.now(VN_TZ).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def hash_password(password):

@@ -26,7 +26,7 @@
             </a>
             <div class="d-flex align-items-center gap-3">
                 <div id="userInfo" class="d-none align-items-center gap-2">
-                    <span class="fw-semibold" id="navUsername">An Nguyễn</span>
+                    <span class="fw-semibold" id="navUsername">--</span>
                     <button class="btn btn-outline-danger btn-sm rounded-pill" onclick="logout()"><i class="bi bi-box-arrow-right"></i> Đăng xuất</button>
                 </div>
             </div>
@@ -35,7 +35,7 @@
 
     <div class="container py-4">
 
-        <!-- MÀN HÌNH 1: ĐĂNG NHẬP & ĐĂNG KÝ (Chuyển Tab thuần JS) -->
+        <!-- MÀN HÌNH 1: ĐĂNG NHẬP & ĐĂNG KÝ -->
         <div id="loginView" class="row justify-content-center py-5">
             <div class="col-md-5">
                 <div class="card card-custom p-4">
@@ -74,7 +74,7 @@
                                     <input type="text" id="regUser" class="form-control py-2" placeholder="Tạo username mới" required>
                                 </div>
                                 <div class="mb-3">
-                                    <label class="form-label fw-semibold small">Email</label>
+                                    <label class="form-label fw-semibold small">Email nhận OTP</label>
                                     <input type="email" id="regEmail" class="form-control py-2" placeholder="nguyenvana@example.com" required>
                                 </div>
                                 <div class="mb-3">
@@ -138,7 +138,7 @@
 
                 </div>
 
-                <!-- Cột phải: Lịch sử giao dịch & Sổ cái -->
+                <!-- Cột phải: Lịch sử giao dịch -->
                 <div class="col-lg-7">
                     <div class="card card-custom p-4 h-100">
                         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -171,6 +171,7 @@
     </div>
 
     <!-- MODAL XÁC THỰC OTP -->
+    <!-- MODAL XÁC THỰC OTP -->
     <div class="modal fade" id="otpModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 rounded-4 shadow">
@@ -179,12 +180,9 @@
                     <button type="button" class="btn-close" onclick="closeOtpModal()"></button>
                 </div>
                 <div class="modal-body text-center py-4">
-                    <p class="text-muted small mb-3">
+                    <p class="text-muted small mb-4">
                         Mã OTP đã được gửi đến email đăng ký của bạn. Mã có hiệu lực trong <strong id="otpTimer" class="text-danger">05:00</strong>.
                     </p>
-                    <div class="alert alert-info py-2 small d-inline-block mb-3">
-                        <i class="bi bi-info-circle"></i> Demo OTP tự động: <strong id="demoOtpCode" class="fs-6 text-dark">------</strong>
-                    </div>
 
                     <div class="otp-input d-flex justify-content-center my-3">
                         <input type="text" maxlength="1" class="otp-digit" autofocus>

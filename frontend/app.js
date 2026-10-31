@@ -7,17 +7,18 @@ const TRANSFER_SERVICE = "http://127.0.0.1:8000";
 let currentUserId = null;
 let currentUserWalletId = null;
 let activeTransactionId = null;
+let otpCountdownTimer = null; // Biến quản lý bộ đếm ngược OTP
 
 async function apiCall(baseUrl, path, method = "GET", body = null) {
     const options = { method, headers: { "Content-Type": "application/json" } };
     if (body) options.body = JSON.stringify(body);
     const res = await fetch(baseUrl + path, options);
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Có lỗi xảy ra");
+    if (!res.ok) throw new Error(data.error || data.detail || "Có lỗi xảy ra");
     return data;
 }
 
-// Xử lý Đăng Nhập Mới (Gọi sang USER_SERVICE 8001 /api/login)
+// 1. Đăng Nhập (USER_SERVICE 8001)
 async function handleLogin(e) {
     e.preventDefault();
     const username = document.getElementById("loginUser").value.trim();
@@ -27,9 +28,6 @@ async function handleLogin(e) {
     try {
         const res = await apiCall(USER_SERVICE, "/api/login", "POST", { username, password });
 
-        // Tài khoản Admin không đăng nhập ở trang người dùng -> chuyển thẳng sang
-        // trang quản trị, không bắt đăng nhập lại lần 2 (lưu phiên tạm trong
-        // sessionStorage để /admin tự nhận diện và vào thẳng Admin Panel).
         if (res.user.is_admin) {
             sessionStorage.setItem("p2p_admin_session", JSON.stringify({ username: res.user.username }));
             window.location.href = "/admin";
@@ -50,7 +48,8 @@ async function handleLogin(e) {
         document.getElementById("loginError").textContent = err.message;
     }
 }
-// Xử lý Đăng Ký Tài Khoản Vĩnh Viễn (Gọi sang USER_SERVICE 8001 /api/register)
+
+// 2. Đăng Ký (USER_SERVICE 8001)
 async function handleRegister(e) {
     e.preventDefault();
     const username = document.getElementById("regUser").value.trim();
@@ -58,25 +57,20 @@ async function handleRegister(e) {
     const password = document.getElementById("regPass").value.trim();
     document.getElementById("regError").textContent = "";
 
-    // Tìm trong hàm handleRegister đoạn đăng ký thành công và sửa lại:
-try {
-    const res = await apiCall(USER_SERVICE, "/api/register", "POST", { username, email, password });
-    
-    showToast("Đăng ký tài khoản thành công! Tặng ngay 1,000,000 VND vào ví.", "success", 4000);
-    document.getElementById("registerForm").reset();
+    try {
+        await apiCall(USER_SERVICE, "/api/register", "POST", { username, email, password });
+        
+        showToast("Đăng ký tài khoản thành công! Tặng ngay 1,000,000 VND vào ví.", "success", 4000);
+        document.getElementById("registerForm").reset();
 
-    // Chuyển về tab Đăng nhập bằng JS thuần
-    switchTab('login');
-    document.getElementById("loginUser").value = username;
-} catch (err) {
-    document.getElementById("regError").textContent = err.message;
-}
+        switchTab('login');
+        document.getElementById("loginUser").value = username;
+    } catch (err) {
+        document.getElementById("regError").textContent = err.message;
+    }
 }
 
-// Bổ sung gán hàm window
-window.handleRegister = handleRegister;
-
-// 2. Tra cứu Ví -> Gọi WALLET_SERVICE (Port 8002)
+// 3. Tra cứu Ví (WALLET_SERVICE 8002)
 async function lookupReceiver() {
     const rid = document.getElementById("receiverWalletId").value;
     const infoDiv = document.getElementById("receiverInfo");
@@ -92,7 +86,7 @@ async function lookupReceiver() {
     }
 }
 
-// 3. Tải Số Dư & Lịch Sử -> Gọi WALLET_SERVICE (8002) & TRANSFER_SERVICE (8000)
+// 4. Tải Số Dư & Lịch Sử (WALLET_SERVICE 8002 & TRANSFER_SERVICE 8000)
 async function loadDashboardData() {
     if (!currentUserId) return;
     try {
@@ -103,7 +97,6 @@ async function loadDashboardData() {
             document.getElementById("userBalance").textContent = Number(myWallet.balance).toLocaleString("vi-VN") + " " + myWallet.currency;
             document.getElementById("profileWalletId").textContent = "#" + myWallet.id;
         } else {
-            // Không có ví (vd: tài khoản không có ví) -> xoá dữ liệu cũ, tránh hiện sai số dư của lượt đăng nhập trước
             currentUserWalletId = null;
             document.getElementById("userBalance").textContent = "0 VND";
             document.getElementById("profileWalletId").textContent = "#--";
@@ -121,10 +114,11 @@ async function loadDashboardData() {
                 ? '<span class="text-danger fw-bold"><i class="bi bi-arrow-up-right-circle"></i> Chuyển đi</span>' 
                 : '<span class="text-success fw-bold"><i class="bi bi-arrow-down-left-circle"></i> Nhận tiền</span>';
             
+            // Truyền t.created_at vào showOtpModal để tính toán thời hạn OTP còn lại
             const statusBadge = t.status === 'SUCCESS' ? '<span class="badge-status badge-success">Thành công</span>'
                 : t.status === 'PENDING' ? `
                     <span class="badge-status badge-pending">Chờ OTP</span>
-                    <button class="btn btn-sm btn-warning py-0 px-2 ms-1 fw-bold" onclick="showOtpModal(${t.id}, 'Kiểm tra OTP')">
+                    <button class="btn btn-sm btn-warning py-0 px-2 ms-1 fw-bold" onclick="showOtpModal(${t.id}, '${t.created_at}')">
                         <i class="bi bi-key"></i> Nhập OTP
                     </button>
                 `
@@ -147,7 +141,7 @@ async function loadDashboardData() {
     }
 }
 
-// 4. Tạo chuyển tiền -> Gọi TRANSFER_SERVICE (Port 8000)
+// 5. Tạo chuyển tiền (TRANSFER_SERVICE 8000)
 async function initiateTransfer(e) {
     e.preventDefault();
     document.getElementById("transferError").textContent = "";
@@ -161,14 +155,15 @@ async function initiateTransfer(e) {
             amount: amount
         });
 
-        showOtpModal(res.transaction_id, res.demo_otp);
+        // Giao dịch mới khởi tạo -> Bật modal tính đếm ngược ngay
+        showOtpModal(res.transaction_id, new Date().toISOString().replace('T', ' ').substring(0, 19));
         await loadDashboardData();
     } catch (err) {
         document.getElementById("transferError").textContent = err.message;
     }
 }
 
-// 5. Xác nhận OTP -> Gọi TRANSFER_SERVICE (Port 8000)
+// 6. Xác nhận OTP (TRANSFER_SERVICE 8000)
 async function confirmOTP() {
     const digits = Array.from(document.querySelectorAll('.otp-digit')).map(i => i.value).join('');
     document.getElementById("otpError").textContent = "";
@@ -191,14 +186,60 @@ async function confirmOTP() {
     }
 }
 
-function showOtpModal(txId, otpCode) {
-    activeTransactionId = txId;
-    const demoEl = document.getElementById("demoOtpCode");
-    if (demoEl) demoEl.textContent = otpCode || "------";
+// --- QUẢN LÝ BỘ ĐẾM NGƯỢC THỜI GIAN THEO THỰC TẾ ---
+function startOtpTimer(remainingSeconds) {
+    clearInterval(otpCountdownTimer);
+    let remaining = remainingSeconds;
+    const timerDisplay = document.getElementById("otpTimer");
+    const errEl = document.getElementById("otpError");
 
-    document.querySelectorAll('.otp-digit').forEach(i => i.value = '');
+    function update() {
+        if (remaining <= 0) {
+            clearInterval(otpCountdownTimer);
+            if (timerDisplay) timerDisplay.textContent = "00:00";
+            if (errEl) errEl.textContent = "Mã OTP đã hết hạn!";
+            document.querySelectorAll('.otp-digit').forEach(i => i.disabled = true);
+            return;
+        }
+
+        const minutes = String(Math.floor(remaining / 60)).padStart(2, '0');
+        const seconds = String(remaining % 60).padStart(2, '0');
+        if (timerDisplay) {
+            timerDisplay.textContent = `${minutes}:${seconds}`;
+        }
+        remaining--;
+    }
+
+    update();
+    if (remaining > 0) {
+        otpCountdownTimer = setInterval(update, 1000);
+    }
+}
+
+// Show Modal OTP & Tính toán thời gian thực tế còn lại
+function showOtpModal(txId, createdAtStr = null) {
+    activeTransactionId = txId;
+
+    // Reset giao diện ô nhập
+    document.querySelectorAll('.otp-digit').forEach(i => {
+        i.value = '';
+        i.disabled = false;
+    });
     const errEl = document.getElementById("otpError");
     if (errEl) errEl.textContent = "";
+
+    // Tính thời gian còn lại (tối đa 300s / 5 phút)
+    let remainingSeconds = 300;
+    if (createdAtStr) {
+        // Chuyển chuỗi YYYY-MM-DD HH:MM:SS (UTC) sang timestamp
+        const txTime = new Date(createdAtStr.replace(" ", "T")).getTime();        
+        const now = Date.now();
+        const elapsedSeconds = Math.floor((now - txTime) / 1000);
+        remainingSeconds = 300 - elapsedSeconds;
+    }
+
+    // Khởi động bộ đếm với thời gian thực còn lại
+    startOtpTimer(remainingSeconds);
 
     const modalEl = document.getElementById('otpModal');
     if (modalEl) {
@@ -214,7 +255,10 @@ function showOtpModal(txId, otpCode) {
     }
 }
 
+// Close Modal OTP & Dừng bộ đếm
 function closeOtpModal() {
+    clearInterval(otpCountdownTimer);
+
     const modalEl = document.getElementById('otpModal');
     if (modalEl) {
         modalEl.classList.remove('show');
@@ -227,19 +271,19 @@ function closeOtpModal() {
 }
 
 function logout() {
+    clearInterval(otpCountdownTimer);
     currentUserId = null;
     currentUserWalletId = null;
     document.getElementById("dashboardView").classList.add("d-none");
     document.getElementById("loginView").classList.remove("d-none");
     document.getElementById("userInfo").classList.replace("d-flex", "d-none");
 
-    // Xoá sạch dữ liệu hiển thị cũ để tránh rò rỉ sang lượt đăng nhập tiếp theo
     document.getElementById("userBalance").textContent = "0 VND";
     document.getElementById("profileWalletId").textContent = "#--";
     document.getElementById("profileName").textContent = "--";
     document.getElementById("loginForm").reset();
 }
-// Hàm chuyển đổi Tab Đăng nhập / Đăng ký bằng JS thuần
+
 function switchTab(type) {
     const loginTab = document.getElementById('login-tab');
     const registerTab = document.getElementById('register-tab');
@@ -257,11 +301,9 @@ function switchTab(type) {
         registerTab.classList.remove('active');
         loginTab.classList.add('active');
         registerPanel.classList.remove('show', 'active');
-        loginPanel.classList.add('show', 'active');
+        if (loginPanel.classList.show) loginPanel.classList.add('show', 'active');
     }
 }
-
-window.switchTab = switchTab;
 
 function showToast(message, type = 'success', duration = 3500) {
     let container = document.getElementById('toastContainer');
@@ -306,15 +348,19 @@ function showToast(message, type = 'success', duration = 3500) {
     }, duration);
 }
 
+// Bổ sung gán hàm toàn cục cho window
+window.switchTab = switchTab;
 window.showOtpModal = showOtpModal;
 window.closeOtpModal = closeOtpModal;
 window.handleLogin = handleLogin;
+window.handleRegister = handleRegister;
 window.logout = logout;
 window.lookupReceiver = lookupReceiver;
 window.initiateTransfer = initiateTransfer;
 window.confirmOTP = confirmOTP;
 window.loadDashboardData = loadDashboardData;
 
+// Tự động chuyển focus giữa 6 ô OTP
 document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll('.otp-digit').forEach((input, index, inputs) => {
         input.addEventListener('keyup', (e) => {
