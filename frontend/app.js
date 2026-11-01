@@ -7,7 +7,7 @@ const TRANSFER_SERVICE = "http://127.0.0.1:8000";
 let currentUserId = null;
 let currentUserWalletId = null;
 let activeTransactionId = null;
-let otpCountdownTimer = null; // Biến quản lý bộ đếm ngược OTP
+let otpCountdownTimer = null;
 
 async function apiCall(baseUrl, path, method = "GET", body = null) {
     const options = { method, headers: { "Content-Type": "application/json" } };
@@ -114,7 +114,6 @@ async function loadDashboardData() {
                 ? '<span class="text-danger fw-bold"><i class="bi bi-arrow-up-right-circle"></i> Chuyển đi</span>' 
                 : '<span class="text-success fw-bold"><i class="bi bi-arrow-down-left-circle"></i> Nhận tiền</span>';
             
-            // Truyền t.created_at vào showOtpModal để tính toán thời hạn OTP còn lại
             const statusBadge = t.status === 'SUCCESS' ? '<span class="badge-status badge-success">Thành công</span>'
                 : t.status === 'PENDING' ? `
                     <span class="badge-status badge-pending">Chờ OTP</span>
@@ -155,7 +154,6 @@ async function initiateTransfer(e) {
             amount: amount
         });
 
-        // Giao dịch mới khởi tạo -> Bật modal tính đếm ngược ngay
         showOtpModal(res.transaction_id, new Date().toISOString().replace('T', ' ').substring(0, 19));
         await loadDashboardData();
     } catch (err) {
@@ -186,7 +184,99 @@ async function confirmOTP() {
     }
 }
 
-// --- QUẢN LÝ BỘ ĐẾM NGƯỢC THỜI GIAN THEO THỰC TẾ ---
+// --- QUẢN LÝ QUÊN MẬT KHẨU ---
+function openForgotPasswordModal(e) {
+    if (e) e.preventDefault();
+    document.getElementById("forgotEmailInput").value = "";
+    document.getElementById("forgotOtpInput").value = "";
+    document.getElementById("forgotNewPasswordInput").value = "";
+    document.getElementById("forgotStep1Error").textContent = "";
+    document.getElementById("forgotStep2Error").textContent = "";
+
+    document.getElementById("forgotStep1").classList.remove("d-none");
+    document.getElementById("forgotStep2").classList.add("d-none");
+
+    const modalEl = document.getElementById("forgotPasswordModal");
+    if (modalEl) {
+        modalEl.classList.add('show');
+        modalEl.style.display = 'block';
+        modalEl.removeAttribute('aria-hidden');
+
+        if (!document.querySelector('.modal-backdrop')) {
+            const backdrop = document.createElement('div');
+            backdrop.className = 'modal-backdrop fade show';
+            document.body.appendChild(backdrop);
+        }
+    }
+}
+
+function closeForgotPasswordModal() {
+    const modalEl = document.getElementById("forgotPasswordModal");
+    if (modalEl) {
+        modalEl.classList.remove('show');
+        modalEl.style.display = 'none';
+        modalEl.setAttribute('aria-hidden', 'true');
+
+        const backdrop = document.querySelector('.modal-backdrop');
+        if (backdrop) backdrop.remove();
+    }
+}
+
+async function handleSendForgotOTP() {
+    const email = document.getElementById("forgotEmailInput").value.trim();
+    const errDiv = document.getElementById("forgotStep1Error");
+    errDiv.textContent = "";
+
+    if (!email) {
+        errDiv.textContent = "Vui lòng nhập Email!";
+        return;
+    }
+
+    try {
+        const res = await apiCall(USER_SERVICE, "/api/forgot-password/request", "POST", { email });
+        showToast("Mã OTP đã được gửi về email của bạn!", "success", 4000);
+        
+        if (res.demo_otp) {
+            console.log("Mã OTP Khôi phục Demo:", res.demo_otp);
+        }
+
+        document.getElementById("forgotStep1").classList.add("d-none");
+        document.getElementById("forgotStep2").classList.remove("d-none");
+    } catch (err) {
+        errDiv.textContent = err.message;
+    }
+}
+
+async function handleResetPassword() {
+    const email = document.getElementById("forgotEmailInput").value.trim();
+    const otp_code = document.getElementById("forgotOtpInput").value.trim();
+    const new_password = document.getElementById("forgotNewPasswordInput").value.trim();
+    const errDiv = document.getElementById("forgotStep2Error");
+    errDiv.textContent = "";
+
+    if (!otp_code || !new_password) {
+        errDiv.textContent = "Vui lòng nhập đầy đủ mã OTP và mật khẩu mới!";
+        return;
+    }
+
+    try {
+        await apiCall(USER_SERVICE, "/api/forgot-password/reset", "POST", {
+            email,
+            otp_code,
+            new_password
+        });
+
+        closeForgotPasswordModal();
+        showToast("Đặt lại mật khẩu thành công! Hãy đăng nhập lại.", "success", 4000);
+
+        switchTab('login');
+        document.getElementById("loginPass").value = "";
+    } catch (err) {
+        errDiv.textContent = err.message;
+    }
+}
+
+// --- QUẢN LÝ BỘ ĐẾM NGƯỜI THỜI GIAN THEO THỰC TẾ ---
 function startOtpTimer(remainingSeconds) {
     clearInterval(otpCountdownTimer);
     let remaining = remainingSeconds;
@@ -216,11 +306,9 @@ function startOtpTimer(remainingSeconds) {
     }
 }
 
-// Show Modal OTP & Tính toán thời gian thực tế còn lại
 function showOtpModal(txId, createdAtStr = null) {
     activeTransactionId = txId;
 
-    // Reset giao diện ô nhập
     document.querySelectorAll('.otp-digit').forEach(i => {
         i.value = '';
         i.disabled = false;
@@ -228,17 +316,14 @@ function showOtpModal(txId, createdAtStr = null) {
     const errEl = document.getElementById("otpError");
     if (errEl) errEl.textContent = "";
 
-    // Tính thời gian còn lại (tối đa 300s / 5 phút)
     let remainingSeconds = 300;
     if (createdAtStr) {
-        // Chuyển chuỗi YYYY-MM-DD HH:MM:SS (UTC) sang timestamp
         const txTime = new Date(createdAtStr.replace(" ", "T")).getTime();        
         const now = Date.now();
         const elapsedSeconds = Math.floor((now - txTime) / 1000);
         remainingSeconds = 300 - elapsedSeconds;
     }
 
-    // Khởi động bộ đếm với thời gian thực còn lại
     startOtpTimer(remainingSeconds);
 
     const modalEl = document.getElementById('otpModal');
@@ -255,7 +340,6 @@ function showOtpModal(txId, createdAtStr = null) {
     }
 }
 
-// Close Modal OTP & Dừng bộ đếm
 function closeOtpModal() {
     clearInterval(otpCountdownTimer);
 
@@ -293,15 +377,15 @@ function switchTab(type) {
     if (!loginTab || !registerTab || !loginPanel || !registerPanel) return;
 
     if (type === 'register') {
-        loginTab.classList.remove('active');
-        registerTab.classList.add('active');
-        loginPanel.classList.remove('show', 'active');
-        registerPanel.classList.add('show', 'active');
+        loginTab.className = 'btn btn-outline-primary w-50 fw-bold py-2';
+        registerTab.className = 'btn btn-primary w-50 fw-bold py-2';
+        loginPanel.classList.add('d-none');
+        registerPanel.classList.remove('d-none');
     } else {
-        registerTab.classList.remove('active');
-        loginTab.classList.add('active');
-        registerPanel.classList.remove('show', 'active');
-        if (loginPanel.classList.show) loginPanel.classList.add('show', 'active');
+        loginTab.className = 'btn btn-primary w-50 fw-bold py-2';
+        registerTab.className = 'btn btn-outline-primary w-50 fw-bold py-2';
+        registerPanel.classList.add('d-none');
+        loginPanel.classList.remove('d-none');
     }
 }
 
@@ -359,6 +443,10 @@ window.lookupReceiver = lookupReceiver;
 window.initiateTransfer = initiateTransfer;
 window.confirmOTP = confirmOTP;
 window.loadDashboardData = loadDashboardData;
+window.openForgotPasswordModal = openForgotPasswordModal;
+window.closeForgotPasswordModal = closeForgotPasswordModal;
+window.handleSendForgotOTP = handleSendForgotOTP;
+window.handleResetPassword = handleResetPassword;
 
 // Tự động chuyển focus giữa 6 ô OTP
 document.addEventListener("DOMContentLoaded", () => {

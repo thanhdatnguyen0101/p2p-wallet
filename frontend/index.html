@@ -39,52 +39,49 @@
         <div id="loginView" class="row justify-content-center py-5">
             <div class="col-md-5">
                 <div class="card card-custom p-4">
-                    <!-- Nav Tabs Chuyển Đổi bằng onclick JS -->
-                    <ul class="nav nav-pills nav-justified mb-4" id="authTabs">
-                        <li class="nav-item">
-                            <button class="nav-link active fw-bold" id="login-tab" type="button" onclick="switchTab('login')">Đăng Nhập</button>
-                        </li>
-                        <li class="nav-item">
-                            <button class="nav-link fw-bold" id="register-tab" type="button" onclick="switchTab('register')">Đăng Ký Mới</button>
-                        </li>
-                    </ul>
+                    <!-- Nút Chuyển Đổi Tab Đơn Giản -->
+                    <div class="d-flex mb-4 gap-2">
+                        <button class="btn btn-primary w-50 fw-bold py-2" id="login-tab" type="button" onclick="switchTab('login')">Đăng Nhập</button>
+                        <button class="btn btn-outline-primary w-50 fw-bold py-2" id="register-tab" type="button" onclick="switchTab('register')">Đăng Ký Mới</button>
+                    </div>
 
-                    <div class="tab-content">
-                        <!-- TAB ĐĂNG NHẬP -->
-                        <div class="tab-pane fade show active" id="login-panel">
-                            <form id="loginForm" onsubmit="handleLogin(event)">
-                                <div class="mb-3">
-                                    <label class="form-label fw-semibold small">Tên đăng nhập</label>
-                                    <input type="text" id="loginUser" class="form-control py-2" placeholder="Nhập username" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label fw-semibold small">Mật khẩu</label>
-                                    <input type="password" id="loginPass" class="form-control py-2" placeholder="••••••••" required>
-                                </div>
-                                <div id="loginError" class="text-danger small mb-3"></div>
-                                <button type="submit" class="btn btn-primary-custom w-100 py-2">Đăng Nhập <i class="bi bi-arrow-right ms-1"></i></button>
-                            </form>
-                        </div>
+                    <!-- KHUNG ĐĂNG NHẬP -->
+                    <div id="login-panel">
+                        <form id="loginForm" onsubmit="handleLogin(event)">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold small">Tên đăng nhập</label>
+                                <input type="text" id="loginUser" class="form-control py-2" placeholder="Nhập username" required>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label fw-semibold small">Mật khẩu</label>
+                                <input type="password" id="loginPass" class="form-control py-2" placeholder="••••••••" required>
+                            </div>
+                            <div class="d-flex justify-content-end mb-3">
+                                <a href="#" class="small text-decoration-none" onclick="openForgotPasswordModal(event)">Quên mật khẩu?</a>
+                            </div>
+                            <div id="loginError" class="text-danger small mb-3"></div>
+                            <button type="submit" class="btn btn-primary-custom w-100 py-2">Đăng Nhập <i class="bi bi-arrow-right ms-1"></i></button>
+                        </form>
+                    </div>
 
-                        <!-- TAB ĐĂNG KÝ -->
-                        <div class="tab-pane fade" id="register-panel">
-                            <form id="registerForm" onsubmit="handleRegister(event)">
-                                <div class="mb-3">
-                                    <label class="form-label fw-semibold small">Tên đăng nhập</label>
-                                    <input type="text" id="regUser" class="form-control py-2" placeholder="Tạo username mới" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label fw-semibold small">Email nhận OTP</label>
-                                    <input type="email" id="regEmail" class="form-control py-2" placeholder="nguyenvana@example.com" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label fw-semibold small">Mật khẩu</label>
-                                    <input type="password" id="regPass" class="form-control py-2" placeholder="••••••••" required>
-                                </div>
-                                <div id="regError" class="text-danger small mb-3"></div>
-                                <button type="submit" class="btn btn-success w-100 py-2 fw-bold"><i class="bi bi-person-plus"></i> Tạo Tài Khoản Mới</button>
-                            </form>
-                        </div>
+                    <!-- KHUNG ĐĂNG KÝ -->
+                    <div id="register-panel" class="d-none">
+                        <form id="registerForm" onsubmit="handleRegister(event)">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold small">Tên đăng nhập mới</label>
+                                <input type="text" id="regUser" class="form-control py-2" placeholder="Tạo username mới" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold small">Email nhận OTP</label>
+                                <input type="email" id="regEmail" class="form-control py-2" placeholder="nguyenvana@example.com" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold small">Mật khẩu mới</label>
+                                <input type="password" id="regPass" class="form-control py-2" placeholder="••••••••" required>
+                            </div>
+                            <div id="regError" class="text-danger small mb-3"></div>
+                            <button type="submit" class="btn btn-success w-100 py-2 fw-bold"><i class="bi bi-person-plus"></i> Tạo Tài Khoản Mới</button>
+                        </form>
                     </div>
 
                 </div>
@@ -170,8 +167,7 @@
 
     </div>
 
-    <!-- MODAL XÁC THỰC OTP -->
-    <!-- MODAL XÁC THỰC OTP -->
+    <!-- MODAL XÁC THỰC OTP GIAO DỊCH -->
     <div class="modal fade" id="otpModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 rounded-4 shadow">
@@ -197,6 +193,45 @@
                 <div class="modal-footer border-0 pt-0 justify-content-center">
                     <button type="button" class="btn btn-secondary px-4 rounded-3" onclick="closeOtpModal()">Hủy</button>
                     <button type="button" class="btn btn-primary-custom px-4" onclick="confirmOTP()">Xác Nhận Thanh Toán</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL KHÔI PHỤC MẬT KHẨU -->
+    <div class="modal fade" id="forgotPasswordModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 rounded-4 shadow">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-key-fill text-warning me-2"></i>Khôi Phục Mật Khẩu</h5>
+                    <button type="button" class="btn-close" onclick="closeForgotPasswordModal()"></button>
+                </div>
+                <div class="modal-body py-4">
+                    <!-- BƯỚC 1: Nhập Email -->
+                    <div id="forgotStep1">
+                        <p class="text-muted small mb-3">Nhập địa chỉ email đăng ký tài khoản để nhận mã OTP khôi phục (hiệu lực 5 phút).</p>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold small">Email đăng ký</label>
+                            <input type="email" id="forgotEmailInput" class="form-control" placeholder="nguyenvana@example.com">
+                        </div>
+                        <div id="forgotStep1Error" class="text-danger small mb-2"></div>
+                        <button type="button" class="btn btn-primary-custom w-100" onclick="handleSendForgotOTP()">Gửi Mã OTP qua Email</button>
+                    </div>
+
+                    <!-- BƯỚC 2: Nhập OTP & Mật khẩu mới -->
+                    <div id="forgotStep2" class="d-none">
+                        <div class="alert alert-info small py-2 mb-3">Mã OTP 6 số đã được gửi đến email của bạn!</div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold small">Mã OTP (6 chữ số)</label>
+                            <input type="text" id="forgotOtpInput" class="form-control text-center fw-bold fs-5" maxlength="6" placeholder="000000">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold small">Mật khẩu mới</label>
+                            <input type="password" id="forgotNewPasswordInput" class="form-control" placeholder="••••••••">
+                        </div>
+                        <div id="forgotStep2Error" class="text-danger small mb-2"></div>
+                        <button type="button" class="btn btn-success w-100 fw-bold" onclick="handleResetPassword()">Xác Nhận Đổi Mật Khẩu</button>
+                    </div>
                 </div>
             </div>
         </div>
