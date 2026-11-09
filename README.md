@@ -76,10 +76,26 @@ p2p-wallet/
 │   ├── style.css                # CSS tùy biến & OTP Modal
 │   └── app.js                   # Logic JavaScript gọi API phân tán 4 Ports
 ├── services/
-│   ├── user_service.py          # Microservice Quản lý User (Port 8001)
-│   ├── wallet_service.py        # Microservice Quản lý Ví & Sổ cái (Port 8002)
-│   ├── notification_service.py  # Microservice Tạo & Xác thực OTP (Port 8003)
-│   └── transfer_service.py      # Microservice Điều phối Giao dịch (Port 8000)
+│   ├── user_service/            # Microservice Quản lý User (Port 8001)
+│   │   ├── main.py              # Entrypoint & FastAPI app
+│   │   ├── router.py            # APIRouter các endpoint người dùng & auth
+│   │   ├── model.py             # Pydantic models / schemas
+│   │   └── database.py          # Kết nối & thao tác DB
+│   ├── wallet_service/          # Microservice Quản lý Ví & Sổ cái (Port 8002)
+│   │   ├── main.py              # Entrypoint & FastAPI app
+│   │   ├── router.py            # APIRouter các endpoint ví & ledger
+│   │   ├── model.py             # Pydantic models / schemas
+│   │   └── database.py          # Kết nối & giao dịch DB
+│   ├── notification_service/    # Microservice Tạo & Xác thực OTP (Port 8003)
+│   │   ├── main.py              # Entrypoint & FastAPI app
+│   │   ├── router.py            # APIRouter tạo và kiểm tra OTP
+│   │   ├── model.py             # Pydantic models / schemas
+│   │   └── utils.py             # Gửi email & helper OTP
+│   └── transfer_service/        # Microservice Điều phối Giao dịch (Port 8000)
+│       ├── main.py              # Entrypoint & FastAPI app
+│       ├── router.py            # APIRouter điều phối chuyển tiền & UI static
+│       ├── model.py             # Pydantic models / schemas
+│       └── utils.py             # Gọi inter-service HTTP & helper
 ├── run_all.py                   # Script khởi chạy đồng thời 4 Microservices
 ├── README.md                    # Tài liệu hướng dẫn dự án
 └── .gitignore

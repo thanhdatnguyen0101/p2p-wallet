@@ -2,16 +2,20 @@ import os
 import subprocess
 import sys
 import time
+
 if sys.platform == "win32":
   try:
     sys.stdout.reconfigure(encoding="utf-8")
   except Exception:
     pass
+
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 services = [
-    "services/user_service.py",
-    "services/wallet_service.py",
-    "services/notification_service.py",
-    "services/transfer_service.py",
+    ("User Service", [sys.executable, "-m", "services.user_service"]),
+    ("Wallet Service", [sys.executable, "-m", "services.wallet_service"]),
+    ("Notification Service", [sys.executable, "-m", "services.notification_service"]),
+    ("Transfer Service", [sys.executable, "-m", "services.transfer_service"]),
 ]
 
 processes = []
@@ -19,8 +23,8 @@ processes = []
 print("P2P Wallet Microservices (FastAPI)...\n")
 
 try:
-  for service in services:
-    p = subprocess.Popen([sys.executable, service])
+  for name, cmd in services:
+    p = subprocess.Popen(cmd, cwd=ROOT_DIR)
     processes.append(p)
     time.sleep(0.5)
 

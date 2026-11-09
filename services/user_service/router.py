@@ -1,128 +1,47 @@
-from datetime import datetime, timedelta, timezone
-import hashlib
-import os
+"""Router definitions for User Service."""
 import sqlite3
-from typing import Optional
-
 import httpx
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOT_DATA_DB = os.path.abspath(os.path.join(BASE_DIR, "..", "..", "data", "p2p_wallet.db"))
-BACKEND_DB = os.path.abspath(os.path.join(BASE_DIR, "..", "p2p_wallet.db"))
-DATA_DB = os.path.abspath(os.path.join(BASE_DIR, "..", "data", "p2p_wallet.db"))
+try:
+    from .model import (
+        RegisterRequest,
+        LoginRequest,
+        ForgotPasswordRequest,
+        ResetPasswordRequest,
+        AdminCreateUserRequest,
+        AdminUpdateUserRequest,
+    )
+    from .database import (
+        DB_PATH,
+        PORT,
+        NOTIFICATION_SERVICE_URL,
+        now_text,
+        hash_password,
+        get_db_connection,
+    )
+except ImportError:
+    from model import (
+        RegisterRequest,
+        LoginRequest,
+        ForgotPasswordRequest,
+        ResetPasswordRequest,
+        AdminCreateUserRequest,
+        AdminUpdateUserRequest,
+    )
+    from database import (
+        DB_PATH,
+        PORT,
+        NOTIFICATION_SERVICE_URL,
+        now_text,
+        hash_password,
+        get_db_connection,
+    )
 
-if os.path.exists(ROOT_DATA_DB):
-    DB_PATH = ROOT_DATA_DB
-elif os.path.exists(DATA_DB):
-    DB_PATH = DATA_DB
-else:
-    DB_PATH = BACKEND_DB
-
-PORT = 8001
-NOTIFICATION_SERVICE_URL = "http://127.0.0.1:8003"
-
-VN_TZ = timezone(timedelta(hours=7))
-
-def now_text():
-    return datetime.now(VN_TZ).strftime("%Y-%m-%d %H:%M:%S")
-
-
-def hash_password(password):
-    return hashlib.sha256(password.encode("utf-8")).hexdigest()
-
-
-DEFAULT_ADMIN_USERNAME = "admin"
-DEFAULT_ADMIN_EMAIL = "admin@p2pwallet.local"
-DEFAULT_ADMIN_PASSWORD = "Admin@123"
-
-
-def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    try:
-        conn.execute("ALTER TABLE users ADD COLUMN password_hash TEXT DEFAULT ''")
-        conn.commit()
-    except sqlite3.OperationalError:
-        pass
-
-    try:
-        conn.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0")
-        conn.commit()
-    except sqlite3.OperationalError:
-        pass
-
-    conn.row_factory = sqlite3.Row
-    existing_admin = conn.execute("SELECT id FROM users WHERE is_admin = 1 LIMIT 1").fetchone()
-    if not existing_admin:
-        conn.execute(
-            "INSERT OR IGNORE INTO users (username, email, password_hash, created_at, is_admin) VALUES (?, ?, ?, ?, 1)",
-            (
-                DEFAULT_ADMIN_USERNAME,
-                DEFAULT_ADMIN_EMAIL,
-                hash_password(DEFAULT_ADMIN_PASSWORD),
-                now_text(),
-            ),
-        )
-        conn.commit()
-
-    conn.close()
+router = APIRouter()
 
 
-init_db()
-
-app = FastAPI(title="User Service")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request, exc):
-    return JSONResponse(status_code=exc.status_code, content={"error": exc.detail})
-
-
-class RegisterRequest(BaseModel):
-    username: str = ""
-    email: str = ""
-    password: str = ""
-
-
-class LoginRequest(BaseModel):
-    username: str = ""
-    password: str = ""
-
-
-class ForgotPasswordRequest(BaseModel):
-    email: str
-
-
-class ResetPasswordRequest(BaseModel):
-    email: str
-    otp_code: str
-    new_password: str
-
-
-class AdminCreateUserRequest(BaseModel):
-    username: str = ""
-    email: str = ""
-    password: str = ""
-    initial_balance: float = 1000000
-
-
-class AdminUpdateUserRequest(BaseModel):
-    username: Optional[str] = None
-    email: Optional[str] = None
-    password: Optional[str] = None
-
-
-@app.get("/")
+@router.get("/")
 def root():
     return {
         "service": "User Service",
@@ -141,10 +60,9 @@ def root():
     }
 
 
-@app.get("/api/users")
+@router.get("/api/users")
 def list_users():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = get_db_connection()
     rows = conn.execute(
         "SELECT id, username, email, created_at FROM users WHERE COALESCE(is_admin, 0) = 0 ORDER BY id"
     ).fetchall()
@@ -152,7 +70,7 @@ def list_users():
     return [dict(r) for r in rows]
 
 
-@app.post("/api/register", status_code=201)
+@router.post("/api/register", status_code=201)
 def register(payload: RegisterRequest):
     username = payload.username.strip()
     email = payload.email.strip()
@@ -164,9 +82,7 @@ def register(payload: RegisterRequest):
             detail="Vui lòng nhập đầy đủ Username, Email và Mật khẩu",
         )
 
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-
+    conn = get_db_connection()
     existing = conn.execute(
         "SELECT id FROM users WHERE LOWER(username) = LOWER(?)", (username,)
     ).fetchone()
@@ -196,13 +112,12 @@ def register(payload: RegisterRequest):
     }
 
 
-@app.post("/api/login")
+@router.post("/api/login")
 def login(payload: LoginRequest):
     username = payload.username.strip()
     password = payload.password.strip()
 
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = get_db_connection()
     user = conn.execute(
         "SELECT id, username, email, password_hash, COALESCE(is_admin, 0) AS is_admin FROM users WHERE LOWER(username) = LOWER(?)",
         (username,),
@@ -226,14 +141,13 @@ def login(payload: LoginRequest):
     }
 
 
-@app.post("/api/forgot-password/request")
+@router.post("/api/forgot-password/request")
 def request_forgot_password(payload: ForgotPasswordRequest):
     email = payload.email.strip()
     if not email:
         raise HTTPException(status_code=400, detail="Vui lòng nhập Email!")
 
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = get_db_connection()
     user = conn.execute("SELECT id FROM users WHERE LOWER(email) = LOWER(?)", (email,)).fetchone()
     conn.close()
 
@@ -259,7 +173,7 @@ def request_forgot_password(payload: ForgotPasswordRequest):
         raise HTTPException(status_code=502, detail=f"Không thể kết nối Notification Service: {e}")
 
 
-@app.post("/api/forgot-password/reset")
+@router.post("/api/forgot-password/reset")
 def reset_password(payload: ResetPasswordRequest):
     email = payload.email.strip()
     otp_code = payload.otp_code.strip()
@@ -292,7 +206,7 @@ def reset_password(payload: ResetPasswordRequest):
     return {"message": "Đặt lại mật khẩu thành công! Vui lòng đăng nhập bằng mật khẩu mới."}
 
 
-@app.post("/api/admin/users", status_code=201)
+@router.post("/api/admin/users", status_code=201)
 def admin_create_user(payload: AdminCreateUserRequest):
     username = payload.username.strip()
     email = payload.email.strip()
@@ -304,9 +218,7 @@ def admin_create_user(payload: AdminCreateUserRequest):
     if initial_balance < 0:
         raise HTTPException(status_code=400, detail="Số dư khởi tạo không được âm")
 
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-
+    conn = get_db_connection()
     existing = conn.execute(
         "SELECT id FROM users WHERE LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?)",
         (username, email),
@@ -342,11 +254,9 @@ def admin_create_user(payload: AdminCreateUserRequest):
     }
 
 
-@app.put("/api/admin/users/{user_id}")
+@router.put("/api/admin/users/{user_id}")
 def admin_update_user(user_id: int, payload: AdminUpdateUserRequest):
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-
+    conn = get_db_connection()
     user = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
     if not user:
         conn.close()
@@ -389,11 +299,9 @@ def admin_update_user(user_id: int, payload: AdminUpdateUserRequest):
     }
 
 
-@app.delete("/api/admin/users/{user_id}")
+@router.delete("/api/admin/users/{user_id}")
 def admin_delete_user(user_id: int):
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-
+    conn = get_db_connection()
     user = conn.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
     if not user:
         conn.close()
@@ -425,9 +333,3 @@ def admin_delete_user(user_id: int):
     conn.close()
 
     return {"message": "Đã xoá người dùng thành công!"}
-
-
-if __name__ == "__main__":
-    import uvicorn
-    print(f"[User Service] đang chạy tại http://127.0.0.1:{PORT}")
-    uvicorn.run(app, host="127.0.0.1", port=PORT)

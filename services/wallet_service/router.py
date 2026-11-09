@@ -1,64 +1,17 @@
-from contextlib import contextmanager
-import os
-import sqlite3
+"""Router definitions for Wallet Service."""
+from fastapi import APIRouter, HTTPException
 
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+try:
+    from .model import TransferExecuteRequest
+    from .database import PORT, open_conn, write_tx
+except ImportError:
+    from model import TransferExecuteRequest
+    from database import PORT, open_conn, write_tx
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "..", "data", "p2p_wallet.db")
-PORT = 8002
-
-
-def open_conn():
-    conn = sqlite3.connect(DB_PATH, isolation_level=None)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+router = APIRouter()
 
 
-@contextmanager
-def write_tx():
-    conn = open_conn()
-    try:
-        conn.execute("BEGIN IMMEDIATE")
-        yield conn
-        conn.execute("COMMIT")
-    except BaseException:
-        if conn.in_transaction:
-            conn.execute("ROLLBACK")
-        raise
-    finally:
-        conn.close()
-
-
-app = FastAPI(title="Wallet Service")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request, exc):
-    return JSONResponse(status_code=exc.status_code, content={"error": exc.detail})
-
-
-class TransferExecuteRequest(BaseModel):
-    sender_wallet_id: int
-    receiver_wallet_id: int
-    amount: float
-    transaction_id: int
-    timestamp: str
-
-
-# Trang trạng thái khi mở http://127.0.0.1:8002/ trên trình duyệt
-@app.get("/")
+@router.get("/")
 def root():
     return {
         "service": "Wallet Service",
@@ -73,8 +26,7 @@ def root():
     }
 
 
-# API: GET /api/wallets
-@app.get("/api/wallets")
+@router.get("/api/wallets")
 def list_wallets():
     conn = open_conn()
     try:
@@ -87,8 +39,7 @@ def list_wallets():
         conn.close()
 
 
-# API: GET /api/wallets/:id
-@app.get("/api/wallets/{wallet_id}")
+@router.get("/api/wallets/{wallet_id}")
 def get_wallet(wallet_id: int):
     conn = open_conn()
     try:
@@ -104,8 +55,7 @@ def get_wallet(wallet_id: int):
         conn.close()
 
 
-# API: GET /api/ledger
-@app.get("/api/ledger")
+@router.get("/api/ledger")
 def list_ledger():
     conn = open_conn()
     try:
@@ -118,8 +68,7 @@ def list_ledger():
         conn.close()
 
 
-# API: POST /api/wallets/transfer-execute (Chuyển tiền thực sự giữa 2 ví)
-@app.post("/api/wallets/transfer-execute")
+@router.post("/api/wallets/transfer-execute")
 def transfer_execute(payload: TransferExecuteRequest):
     sender_id = payload.sender_wallet_id
     receiver_id = payload.receiver_wallet_id
@@ -167,10 +116,3 @@ def transfer_execute(payload: TransferExecuteRequest):
         "sender_balance_after": s_after,
         "receiver_balance_after": r_after,
     }
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    print(f"[Wallet Service] đang chạy tại http://127.0.0.1:{PORT}")
-    uvicorn.run(app, host="127.0.0.1", port=PORT)
